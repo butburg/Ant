@@ -57,6 +57,10 @@ float antRotation = 0;
 //Rotationswinkel, je einzelner Tastendruck/impuls
 float keySensi = 2;
 
+float initialFoV = 45.0f;
+float mouseWheel = 0;
+
+
 // Callback-Mechanismen gibt es in unterschiedlicher Form in allen möglichen Programmiersprachen,
 // sehr häufig in interaktiven graphischen Anwendungen. In der Programmiersprache C werden dazu 
 // Funktionspointer verwendet. Man übergibt einer aufgerufenen Funktion einer Bibliothek einen
@@ -88,6 +92,13 @@ void move(int direction) {
 		antPosX -= cos(antRotation * (PI / 180)) * 0.02 * -direction;
 		antPosY -= sin(antRotation * (PI / 180)) * 0.02 * -direction;
 	}
+}
+
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	printf("%f\n", yoffset);
+	mouseWheel += yoffset;
 }
 
 // Diese Funktion wird ebenfalls über Funktionspointer der GLFW-Bibliothek übergeben.
@@ -132,7 +143,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	case GLFW_KEY_D:
 		winkelY -= keySensi;
 		break;
-		
+
 	case GLFW_KEY_UP:
 		move(1);
 		break;
@@ -212,7 +223,7 @@ void drawCS() {
 
 	Model = Save;
 	Model = glm::translate(Model, glm::vec3(0, 1, 0));
-	Model = glm::scale(Model, glm::vec3(shortSide, longSide/2, shortSide));
+	Model = glm::scale(Model, glm::vec3(shortSide, longSide / 2, shortSide));
 	sendMVP();
 	shaderHelper();
 	drawSphere(10, 10);
@@ -345,16 +356,35 @@ int main(void)
 
 	//Time in seconds
 	double t = glfwGetTime();
+	double lastTFPS = t;
 	double lastT = t;
+
+	//frames
+	int nbFrames = 0;
+
 
 
 	// Alles ist vorbereitet, jetzt kann die Eventloop laufen...
 	while (!glfwWindowShouldClose(window))
 	{
 
+		float FoV = initialFoV;// -5 * mouseWheel;
 		//let Food objects appear after time
+
+		//compute timing
 		t = glfwGetTime();
 		double deltaT = t - lastT;
+
+		//get framePerSec
+		nbFrames++;
+		if (t - lastTFPS >= 1.0) {
+			// printf and reset timer
+			printf("%f ms/frame\n", 1000.0 / double(nbFrames));
+			nbFrames = 0;
+			lastTFPS += 1.0;
+		}
+
+
 		//nach x Sekunden und bei weniger als y Food Drops auf dem Feld
 		if (deltaT > 5 && foodNumber < 10) {
 			//der Teiler von Rand_Max bestimmt die maximale Zahl (von Null bis max 10 z.B)
@@ -384,7 +414,7 @@ int main(void)
 		// Wir verwenden dazu die Funktionen aus glm.h
 		// Projektionsmatrix mit 45Grad horizontalem Öffnungswinkel, 4:3 Seitenverhältnis, 
 		// Frontplane bai 0.1 und Backplane bei 100. (Das sind OpenGL-Einheiten, keine Meter oder der gleichen.)
-		Projection = glm::perspective(45.0f, ((float)window_width) / window_height, 0.1f, 100.0f);
+		Projection = glm::perspective(FoV, ((float)window_width) / window_height, 0.1f, 100.0f);
 
 		// Viewmatrix, beschreibt wo die Kamera steht, wo sie hinschaut, und wo oben ist. 
 		// Man muss angeben, wo oben ist, da es eine Mehrdeutigkeit gäbe, wenn man nur beschreiben
@@ -419,22 +449,34 @@ int main(void)
 		glm::mat4 Save = Model;
 		drawCS();
 
-
+		//the Ant
 		Model = glm::translate(Model, glm::vec3(antPosX, 0.0, antPosY));
 		//Lichtpunkt
 		glm::vec4 lightPos = Model * glm::vec4(0, 1.5f, 0, 1);
 		glUniform3f(glGetUniformLocation(programID, "LightPosition_worldspace"), lightPos.x, lightPos.y,
 			lightPos.z);
-		
+
 		Model = glm::rotate(Model, 90.0f, glm::vec3(-1, 0, 0));
 		Model = glm::rotate(Model, 180.0f, glm::vec3(0, 0, 1));
 		Model = glm::rotate(Model, antRotation, glm::vec3(0, 0, -1));
 		Model = glm::scale(Model, glm::vec3(1.0 / 100, 1.0 / 100, 1.0 / 100));
-		
+
 		sendMVP();
 		shaderHelper();
 		ant.display();
+		
+
+		//the ball
+
+		Model = glm::translate(Model, glm::vec3(50+(100.0 * mouseWheel/100), 0.0, 0.0));
+		Model = glm::scale(Model, glm::vec3(20+ mouseWheel, 20+ mouseWheel, 20+ mouseWheel));
+		Model = glm::translate(Model, glm::vec3(0.0, 0.0, 1.0));
+		sendMVP();
+		shaderHelper();
+		drawSphere(10, 10);
 		Model = Save;
+
+
 
 		//draw the FoodDrops
 		for (size_t i = 0; i < foodNumber; i++)
@@ -464,6 +506,8 @@ int main(void)
 		// Da wir zurzeit nur einen "key_callback" installiert haben, wird dann nur genau diese Funktion
 		// aus "glfwPollEvents" heraus aufgerufen.
 		glfwPollEvents();
+
+		glfwSetScrollCallback(window, scroll_callback);
 	}
 
 	//textur loeschen
