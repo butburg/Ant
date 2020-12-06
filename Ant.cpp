@@ -59,6 +59,7 @@ float keySensi = 2;
 
 float initialFoV = 45.0f;
 float mouseWheel = 0;
+float ballScaling = 0;
 
 
 // Callback-Mechanismen gibt es in unterschiedlicher Form in allen möglichen Programmiersprachen,
@@ -86,11 +87,12 @@ void move(int direction) {
 
 		antPosX += cos(antRotation * (PI / 180)) * 0.1 * direction;
 		antPosY += sin(antRotation * (PI / 180)) * 0.1 * direction;
-
+		ballScaling += 0.1;
 	}
 	else if (direction < 0) {
-		antPosX -= cos(antRotation * (PI / 180)) * 0.02 * -direction;
-		antPosY -= sin(antRotation * (PI / 180)) * 0.02 * -direction;
+		//kein rueckwaertslaufen erlaubt!
+		//antPosX -= cos(antRotation * (PI / 180)) * 0.02 * -direction;
+		//antPosY -= sin(antRotation * (PI / 180)) * 0.02 * -direction;
 	}
 }
 
@@ -250,8 +252,10 @@ int foodNumber = 0;
 float randomFoodX[10]{};
 float randomFoodY[10]{};
 
+//Balls
 
-
+//glm::vec3 posBalls;
+std::vector<vec3> posBalls;
 //##################################################--teil3--#########################################################################
 //####################################################################################################################################
 
@@ -261,6 +265,9 @@ float randomFoodY[10]{};
 // Einstiegspunkt für C- und C++-Programme (Funktion), Konsolenprogramme könnte hier auch Parameter erwarten
 int main(void)
 {
+
+
+
 
 
 	// Initialisierung der GLFW-Bibliothek
@@ -316,6 +323,9 @@ int main(void)
 	// Auf Keyboard-Events reagieren (s. o.)
 	glfwSetKeyCallback(window, key_callback);
 
+	// auf mausrad-events reagieren
+	glfwSetScrollCallback(window, scroll_callback);
+
 	// Setzen von Dunkelblau als Hintergrundfarbe (erster OpenGL-Befehl in diesem Programm).
 	// Beim späteren Löschen gibt man die Farbe dann nicht mehr an, sondern liest sie aus dem GC
 	// Der Wertebereich in OpenGL geht nicht von 0 bis 255, sondern von 0 bis 1, hier sind Werte
@@ -334,7 +344,7 @@ int main(void)
 	// Load the texture
 	GLuint Texture = loadBMP_custom("mandrill.bmp");
 
-	// Bind our texture in Texture Unit 0
+	// Bind our texture in Texture Unit 0	
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, Texture);
 
@@ -368,7 +378,7 @@ int main(void)
 	while (!glfwWindowShouldClose(window))
 	{
 
-		float FoV = initialFoV;// -5 * mouseWheel;
+		float FoV = initialFoV - 5 * mouseWheel;
 		//let Food objects appear after time
 
 		//compute timing
@@ -464,13 +474,13 @@ int main(void)
 		sendMVP();
 		shaderHelper();
 		ant.display();
-		
+
 
 		//the ball
-
-		Model = glm::translate(Model, glm::vec3(50+(100.0 * mouseWheel/100), 0.0, 0.0));
-		Model = glm::scale(Model, glm::vec3(20+ mouseWheel, 20+ mouseWheel, 20+ mouseWheel));
+		Model = glm::translate(Model, glm::vec3(50 + (100.0 * ballScaling / 100), 0.0, 0.0));
+		Model = glm::scale(Model, glm::vec3(20 + ballScaling, 20 + ballScaling, 20 + ballScaling));
 		Model = glm::translate(Model, glm::vec3(0.0, 0.0, 1.0));
+		glm::mat4 BallModel = Model;
 		sendMVP();
 		shaderHelper();
 		drawSphere(10, 10);
@@ -484,6 +494,26 @@ int main(void)
 			Model = Save;
 			Model = glm::scale(Model, glm::vec3(0.2, 0.2, 0.2));
 			Model = glm::translate(Model, glm::vec3(randomFoodX[i], 0.0, randomFoodY[i]));
+			sendMVP();
+			shaderHelper();
+			drawSphere(10, 10);
+		}
+
+
+		//draw the builded balls//draw the FoodDrops
+		if (ballScaling > 20) {
+			Model = BallModel;
+			ballScaling = 0;
+			posBalls.push_back((glm::vec3)BallModel[3]);
+			//posBalls[ballNumber] = (glm::vec3)BallModel[3];;	
+		}
+
+
+		for (size_t i = 0; i < posBalls.size(); i++)
+		{
+			printf("%f",((float)i));
+			Model = Save;
+			Model = glm::translate(Model, posBalls[i]);
 			sendMVP();
 			shaderHelper();
 			drawSphere(10, 10);
@@ -507,7 +537,7 @@ int main(void)
 		// aus "glfwPollEvents" heraus aufgerufen.
 		glfwPollEvents();
 
-		glfwSetScrollCallback(window, scroll_callback);
+
 	}
 
 	//textur loeschen
