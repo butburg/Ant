@@ -59,7 +59,7 @@ float keySensi = 2;
 
 float initialFoV = 45.0f;
 float mouseWheel = 0;
-float ballScaling = 0;
+float sphereScaling = 0;
 
 
 // Callback-Mechanismen gibt es in unterschiedlicher Form in allen möglichen Programmiersprachen,
@@ -87,7 +87,7 @@ void move(int direction) {
 
 		antPosX += cos(antRotation * (PI / 180)) * 0.1 * direction;
 		antPosY += sin(antRotation * (PI / 180)) * 0.1 * direction;
-		ballScaling += 0.1;
+		sphereScaling += 0.9;
 	}
 	else if (direction < 0) {
 		//kein rueckwaertslaufen erlaubt!
@@ -249,26 +249,27 @@ void drawSeg(float h)
 //random seed
 
 int foodNumber = 0;
-float randomFoodX[10]{};
-float randomFoodY[10]{};
+const int foodMax = 10;
+const int foodLambda = 5; // every foodLambda a fruit will drop somehwere
+float randomFoodX[foodMax]{};
+float randomFoodY[foodMax]{};
 
 //Balls
 
 //glm::vec3 posBalls;
-std::vector<vec3> posBalls;
+int sphereNumber = 0;
+const int sphereMax = 100;
+std::vector<glm::vec3> spherePos;
+glm::vec3 spheresTrans[sphereMax];
+glm::vec3 spheresScale[sphereMax];
+glm::mat4 spheres[sphereMax];
 //##################################################--teil3--#########################################################################
 //####################################################################################################################################
-
-
 
 
 // Einstiegspunkt für C- und C++-Programme (Funktion), Konsolenprogramme könnte hier auch Parameter erwarten
 int main(void)
 {
-
-
-
-
 
 	// Initialisierung der GLFW-Bibliothek
 	if (!glfwInit())
@@ -342,27 +343,36 @@ int main(void)
 	glUseProgram(programID);
 
 	// Load the texture
-	GLuint Texture = loadBMP_custom("mandrill.bmp");
-
-	// Bind our texture in Texture Unit 0	
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, Texture);
-
-	// Set our "myTextureSampler" sampler to user Texture Unit 0
-	glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0);
+	GLuint TextureMandrill = loadBMP_custom(".\\textures\\mandrill.bmp");
+	GLuint TextureGrass = loadBMP_custom(".\\textures\\grass.bmp");
+	GLuint TextureAntSkin = loadBMP_custom(".\\textures\\antSkin.bmp");
+	GLuint TexturePrairie = loadBMP_custom(".\\textures\\prairie.bmp");
 
 
-	Obj3D cube("cube.obj");
-	Obj3D teapot("teapot.obj");
-	Obj3D ant("ant.obj");
-	//Obj3D anthill("anthill.obj");
+	//Obj3D anthill("/models/anthill.obj");
+	//Obj3D teapot(".\\models\\teapot.obj");
+	Obj3D ant(".\\models\\ant.obj");
+	Obj3D banana(".\\models\\banana.obj");
+	Obj3D birthdayCake(".\\models\\birthdayCake.obj");
+	Obj3D cherry(".\\models\\cherry.obj");
+	//Obj3D chicken(".\\models\\chicken.obj");
+	//Obj3D egg(".\\models\\egg.obj");
+	//Obj3D lettuce(".\\models\\lettuce.obj");
+	Obj3D melon(".\\models\\melon.obj");
+	//Obj3D pineapple(".\\models\\pineapple.obj");
+	//Obj3D pizza(".\\models\\pizza.obj");
+	Obj3D ground(".\\models\\ground.obj");
+	Obj3D wall(".\\models\\wall.obj");
 
-		//FOOD DROPS brauchen Random float für Position
+
+	//ground size
+	const float groundSize = 15.0f;
+
+	//FOOD DROPS brauchen Random float für Position
+	// innnerhalb des grounds, daher -0.X
 	srand(72);
-	float min = -10.0f;
-	float max = 10.0f;
-
-
+	float min = -groundSize + 0.5;
+	float max = groundSize - 0.5;
 
 	//Time in seconds
 	double t = glfwGetTime();
@@ -373,36 +383,35 @@ int main(void)
 	int nbFrames = 0;
 
 
-
 	// Alles ist vorbereitet, jetzt kann die Eventloop laufen...
 	while (!glfwWindowShouldClose(window))
 	{
-
+		//bad zoom
 		float FoV = initialFoV - 5 * mouseWheel;
-		//let Food objects appear after time
 
+		//let Food objects appear after time
 		//compute timing
 		t = glfwGetTime();
 		double deltaT = t - lastT;
 
 		//get framePerSec
-		nbFrames++;
-		if (t - lastTFPS >= 1.0) {
+		//nbFrames++;
+		//if (t - lastTFPS >= 1.0) {
 			// printf and reset timer
-			printf("%f ms/frame\n", 1000.0 / double(nbFrames));
-			nbFrames = 0;
-			lastTFPS += 1.0;
-		}
+		//	printf("%f ms/frame\n", 1000.0 / double(nbFrames));
+		//	nbFrames = 0;
+		//	lastTFPS += 1.0;
+		//}
 
-
-		//nach x Sekunden und bei weniger als y Food Drops auf dem Feld
-		if (deltaT > 5 && foodNumber < 10) {
+		//nach x Sekunden und bei weniger als y food drops auf dem Feld
+		if (deltaT > foodLambda && foodNumber < foodMax) {
 			//der Teiler von Rand_Max bestimmt die maximale Zahl (von Null bis max 10 z.B)
 			float randomX = min + rand() / (float(RAND_MAX / (max - min)));
 			float randomY = min + rand() / (float(RAND_MAX / (max - min)));
 
-			//Anzzahl der Food Drops erhöhen
+			//Anzzahl der food drops erhöhen
 			foodNumber++;
+			//Food drop position setzen
 			randomFoodX[foodNumber - 1] = randomX;
 			randomFoodY[foodNumber - 1] = randomY;
 			lastT = t;
@@ -432,7 +441,8 @@ int main(void)
 		// des/r Piloten/in in der Welt ist klar, es ist dann auch klar, wo er/sie hinschaut. Das Flugzeug 
 		// kann sich aber z. B. auf die Seite legen, dann würde der Horizont "kippen". Dieser Aspekt wird
 		// mit dem up-Vektor (hier "oben") gesteuert.
-		View = glm::lookAt(glm::vec3(0, 2, -5), // die Kamera ist bei (0,0,-5), in Weltkoordinaten
+		View = glm::lookAt(
+			glm::vec3(0, 2, -5), // die Kamera ist bei (0,0,-5), in Weltkoordinaten
 			glm::vec3(0, 0, 0),  // und schaut in den Ursprung
 			glm::vec3(0, 1, 0)); // Oben ist bei (0,1,0), das ist die y-Achse
 
@@ -459,7 +469,15 @@ int main(void)
 		glm::mat4 Save = Model;
 		drawCS();
 
+		// Bind our texture in Texture Unit 0	
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, TextureAntSkin);
+		// Set our "myTextureSampler" sampler to user Texture Unit 0
+		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0);
+
+
 		//the Ant
+		glm::vec3 translate1 = glm::vec3(antPosX, 0.0, antPosY);
 		Model = glm::translate(Model, glm::vec3(antPosX, 0.0, antPosY));
 		//Lichtpunkt
 		glm::vec4 lightPos = Model * glm::vec4(0, 1.5f, 0, 1);
@@ -470,54 +488,177 @@ int main(void)
 		Model = glm::rotate(Model, 180.0f, glm::vec3(0, 0, 1));
 		Model = glm::rotate(Model, antRotation, glm::vec3(0, 0, -1));
 		Model = glm::scale(Model, glm::vec3(1.0 / 100, 1.0 / 100, 1.0 / 100));
+		
+
 
 		sendMVP();
 		shaderHelper();
 		ant.display();
 
-
-		//the ball
-		Model = glm::translate(Model, glm::vec3(50 + (100.0 * ballScaling / 100), 0.0, 0.0));
-		Model = glm::scale(Model, glm::vec3(20 + ballScaling, 20 + ballScaling, 20 + ballScaling));
+		//the Ant sphere
+		glm::vec3 translating = glm::vec3(50 + (100.0 * sphereScaling / 100), 0.5, 0.0);
+		Model = glm::translate(Model, translating);
+		glm::vec3 scaling = glm::vec3(5 + sphereScaling, 5 + sphereScaling, 5 + sphereScaling);
+		Model = glm::scale(Model, scaling);
 		Model = glm::translate(Model, glm::vec3(0.0, 0.0, 1.0));
-		glm::mat4 BallModel = Model;
 		sendMVP();
 		shaderHelper();
 		drawSphere(10, 10);
-		Model = Save;
 
+
+		if (sphereScaling > 30 && sphereNumber < sphereMax) {
+
+			spheres[sphereNumber] = Model;
+			spheresTrans[sphereNumber] = translating;
+			spheresScale[sphereNumber] = scaling;
+			sphereNumber++;
+
+			//sphereModels.push_back(Model);
+			//setze aktuelle model transformations:
+			//spherePos.push_back((glm::vec3)Model[3]);
+			sphereScaling = 0;
+		}
+
+		//draw the builded spheres
+		for (size_t i = 0; i < sizeof(spheres) / sizeof(spheres[0]); i++)
+		{
+
+			printf("%f\n", ((float)i));
+
+			glm::vec3 translating = spheresTrans[i];
+			glm::vec3 scaling = spheresScale[i];
+			Model = spheres[i];
+
+			//Rotate the View
+			//Model = glm::rotate(Model, winkelX, glm::vec3(1, 0, 0));
+			//Model = glm::rotate(Model, winkelY, glm::vec3(0, 1, 0));
+			//Model = glm::rotate(Model, winkelZ, glm::vec3(0, 0, 1));
+			//Model = glm::translate(Model, translating);
+			//Model = glm::scale(Model, scaling);
+
+			sendMVP();
+			shaderHelper();
+			drawSphere(10, 10);
+		}
+
+
+
+
+		// Bind our texture in Texture Unit xx	
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE1, 0);
+		//glDeleteTextures(1, &TextureGrass);
+		// Set our "myTextureSampler" sampler to user Texture Unit xx
+		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 1);
+
+		Model = Save;
+		Model = glm::translate(Model, glm::vec3(2, 0, 0));
+		Model = glm::rotate(Model, 90.0f, glm::vec3(-1, 0, 0));
+		Model = glm::scale(Model, glm::vec3(1.0 / 10, 1.0 / 10, 1.0 / 10));
+		sendMVP();
+		shaderHelper();
+		banana.display();
+
+
+		// Bind our texture in Texture Unit 2	
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, TextureGrass);
+		// Set our "myTextureSampler" sampler to user Texture Unit 2
+		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 2);
+
+		Model = Save;
+		Model = glm::translate(Model, glm::vec3(0, 0, 3));
+		Model = glm::rotate(Model, 90.0f, glm::vec3(-1, 0, 0));
+		Model = glm::scale(Model, glm::vec3(1.0 / 10, 1.0 / 10, 1.0 / 10));
+		sendMVP();
+		shaderHelper();
+		birthdayCake.display();
+
+
+		// Bind our texture in Texture Unit 3
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, TextureGrass);
+		// Set our "myTextureSampler" sampler to user Texture Unit 3
+		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 3);
+
+		//the ground
+		Model = Save;
+		Model = glm::translate(Model, glm::vec3(0, -0.001, 0));
+		Model = glm::scale(Model, glm::vec3(groundSize / 100, 1, groundSize / 100));
+		sendMVP();
+		shaderHelper();
+		ground.display();
+
+
+		// Bind our texture in Texture Unit 4
+		glActiveTexture(GL_TEXTURE4);
+		glBindTexture(GL_TEXTURE_2D, TexturePrairie);
+		// Set our "myTextureSampler" sampler to user Texture Unit 4
+		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 4);
+
+		//the walls
+		Model = Save;
+		Model = glm::translate(Model, glm::vec3(0, 0.9, 0));
+
+		//
+		glm::mat4 Wall = Model;
+		Model = glm::translate(Model, glm::vec3(0, 0, groundSize));
+		Model = glm::rotate(Model, 90.0f, glm::vec3(0, 1, 0));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		sendMVP();
+		shaderHelper();
+		wall.display();
+
+		//
+		Model = Wall;
+		Model = glm::translate(Model, glm::vec3(-groundSize, 0, 0));
+		Model = glm::rotate(Model, 0.0f, glm::vec3(0, 1, 0));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		sendMVP();
+		shaderHelper();
+		wall.display();
+
+		//
+		Model = Wall;
+		Model = glm::translate(Model, glm::vec3(groundSize, 0, 0));
+		Model = glm::rotate(Model, 0.0f, glm::vec3(0, 1, 0));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		sendMVP();
+		shaderHelper();
+		wall.display();
+
+		//
+		Model = Wall;
+		Model = glm::translate(Model, glm::vec3(0, 0, -groundSize));
+		Model = glm::rotate(Model, 90.0f, glm::vec3(0, 1, 0));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		sendMVP();
+		shaderHelper();
+		wall.display();
 
 
 		//draw the FoodDrops
 		for (size_t i = 0; i < foodNumber; i++)
 		{
 			Model = Save;
+			Model = glm::translate(Model, glm::vec3(randomFoodX[i], 0.2, randomFoodY[i]));
 			Model = glm::scale(Model, glm::vec3(0.2, 0.2, 0.2));
-			Model = glm::translate(Model, glm::vec3(randomFoodX[i], 0.0, randomFoodY[i]));
 			sendMVP();
 			shaderHelper();
 			drawSphere(10, 10);
 		}
 
+		
 
-		//draw the builded balls//draw the FoodDrops
-		if (ballScaling > 20) {
-			Model = BallModel;
-			ballScaling = 0;
-			posBalls.push_back((glm::vec3)BallModel[3]);
-			//posBalls[ballNumber] = (glm::vec3)BallModel[3];;	
-		}
-
-
-		for (size_t i = 0; i < posBalls.size(); i++)
-		{
-			printf("%f",((float)i));
-			Model = Save;
-			Model = glm::translate(Model, posBalls[i]);
-			sendMVP();
-			shaderHelper();
-			drawSphere(10, 10);
-		}
+		//draw the builded spheres
+		//if (sphereScaling > 20) {
+		//	
+		//	Model = BallModel;
+		//	sphereScaling = 0;
+		//	posBalls.push_back((glm::vec3)BallModel[3]);
+		//	sphereScale = ((glm::vec3)BallModel[0]);
+		//	//posBalls[sphereNumber] = (glm::vec3)BallModel[3];;	
+		//}
 
 
 		// Bildende. 
@@ -541,7 +682,7 @@ int main(void)
 	}
 
 	//textur loeschen
-	glDeleteTextures(1, &Texture);
+	glDeleteTextures(1, &TextureMandrill);
 
 	// Wenn der Benutzer, das Schliesskreuz oder die Escape-Taste betätigt hat, endet die Schleife und
 	// wir kommen an diese Stelle. Hier können wir aufräumen, und z. B. das Shaderprogramm in der
