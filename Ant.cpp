@@ -80,14 +80,34 @@ void error_callback(int error, const char* description)
 // für Berechnung von Richtungs-bewegung der Armeise
 float PI = 3.14159265358979323846;
 
+//ground size
+const float groundSize = 25.0f;
+const float groundEdge = 2.0f;
+const float maxSphereSize = 35.0f;
+
 void move(int direction) {
 
 
 	if (direction > 0) {
+		float deltaX = cos(antRotation * (PI / 180)) * 0.1 * direction;
+		float deltaY = sin(antRotation * (PI / 180)) * 0.1 * direction;
 
-		antPosX += cos(antRotation * (PI / 180)) * 0.1 * direction;
-		antPosY += sin(antRotation * (PI / 180)) * 0.1 * direction;
-		if (sphereScaling <= 30) sphereScaling += 0.9;
+		if (antPosX < groundSize && antPosX > -groundSize) {
+			antPosX += deltaX;
+		}
+		else if (antPosX > -groundSize && deltaX < 0)
+			antPosX += deltaX;
+		else if (antPosX < groundSize && deltaX > 0)
+			antPosX += deltaX;
+
+		if (antPosY < groundSize && antPosY > -groundSize) {
+			antPosY += deltaY;
+		}
+		else if (antPosY > -groundSize && deltaY < 0)
+			antPosY += deltaY;
+		else if (antPosY < groundSize && deltaY > 0)
+			antPosY += deltaY;
+		if (sphereScaling <= maxSphereSize) sphereScaling += 0.2;
 	}
 	else if (direction < 0) {
 		//kein rueckwaertslaufen erlaubt!
@@ -350,27 +370,26 @@ int main(void)
 
 	//Obj3D anthill("/models/anthill.obj");
 	//Obj3D teapot(".\\models\\teapot.obj");
-	Obj3D ant(".\\models\\antant.obj");
+	Obj3D ant(".\\models\\ant.obj");
 	Obj3D banana(".\\models\\banana.obj");
-	Obj3D birthdayCake(".\\models\\birthdayCake.obj");
+	Obj3D birthdayCake(".\\models\\cherry.obj");
 	Obj3D cherry(".\\models\\cherry.obj");
-	Obj3D chicken(".\\models\\chicken.obj");
-	Obj3D egg(".\\models\\dragon.obj");
-	Obj3D lettuce(".\\models\\lettuce.obj");
+	Obj3D chicken(".\\models\\cherry.obj");
+	Obj3D egg(".\\models\\cherry.obj");
+	Obj3D lettuce(".\\models\\cherry.obj");
 	Obj3D melon(".\\models\\melon.obj");
-	Obj3D pineapple(".\\models\\pineapple.obj");
-	Obj3D pizza(".\\models\\pizza.obj");
+	Obj3D pineapple(".\\models\\cherry.obj");
+	Obj3D pizza(".\\models\\cherry.obj");
 	Obj3D ground(".\\models\\ground.obj");
 	Obj3D wall(".\\models\\wall.obj");
 
 	Obj3D food[] = { banana,birthdayCake,cherry,chicken,egg,lettuce,melon,pineapple,pizza,banana };
 
-	//ground size
-	const float groundSize = 15.0f;
+
 
 	//FOOD DROPS brauchen Random float für Position
 	// innnerhalb des grounds, daher -0.X
-	srand(72);
+	srand(71);
 	float min = -groundSize + 0.5;
 	float max = groundSize - 0.5;
 
@@ -387,7 +406,7 @@ int main(void)
 	while (!glfwWindowShouldClose(window))
 	{
 		//bad zoom
-		float FoV = initialFoV - 5 * mouseWheel;
+		float FoV = initialFoV - 1 * mouseWheel;
 
 		//let Food objects appear after time
 		//compute timing
@@ -414,6 +433,10 @@ int main(void)
 			//Food drop position setzen
 			randomFoodX[foodNumber - 1] = randomX;
 			randomFoodY[foodNumber - 1] = randomY;
+
+			printf("X= %f", randomX);
+			printf(" and Y= %f \n\n", randomY);
+
 			lastT = t;
 		}
 
@@ -433,18 +456,8 @@ int main(void)
 		// Wir verwenden dazu die Funktionen aus glm.h
 		// Projektionsmatrix mit 45Grad horizontalem Öffnungswinkel, 4:3 Seitenverhältnis, 
 		// Frontplane bai 0.1 und Backplane bei 100. (Das sind OpenGL-Einheiten, keine Meter oder der gleichen.)
-		Projection = glm::perspective(FoV, ((float)window_width) / window_height, 0.1f, 100.0f);
+		Projection = glm::perspective(FoV, ((float)window_width) / window_height, 0.01f, 100.0f);
 
-		// Viewmatrix, beschreibt wo die Kamera steht, wo sie hinschaut, und wo oben ist. 
-		// Man muss angeben, wo oben ist, da es eine Mehrdeutigkeit gäbe, wenn man nur beschreiben
-		// würde, wo die Kamera steht und wo sie hinschaut. Denken Sie an ein Flugzeug. Die Position 
-		// des/r Piloten/in in der Welt ist klar, es ist dann auch klar, wo er/sie hinschaut. Das Flugzeug 
-		// kann sich aber z. B. auf die Seite legen, dann würde der Horizont "kippen". Dieser Aspekt wird
-		// mit dem up-Vektor (hier "oben") gesteuert.
-		View = glm::lookAt(
-			glm::vec3(0, 2, -5), // die Kamera ist bei (0,0,-5), in Weltkoordinaten
-			glm::vec3(0, 0, 0),  // und schaut in den Ursprung
-			glm::vec3(0, 1, 0)); // Oben ist bei (0,1,0), das ist die y-Achse
 
 		// Modelmatrix : Hier auf Einheitsmatrix gesetzt, was bedeutet, dass die Objekte sich im Ursprung
 		// des Weltkoordinatensystems befinden.
@@ -453,10 +466,6 @@ int main(void)
 
 
 
-		//Rotate the View
-		Model = glm::rotate(Model, winkelX, glm::vec3(1, 0, 0));
-		Model = glm::rotate(Model, winkelY, glm::vec3(0, 1, 0));
-		Model = glm::rotate(Model, winkelZ, glm::vec3(0, 0, 1));
 
 		// Diese Informationen (Projection, View, Model) müssen geeignet der Grafikkarte übermittelt werden,
 		// damit sie beim Zeichnen von Objekten berücksichtigt werden können.
@@ -485,8 +494,26 @@ int main(void)
 
 		glm::mat4 AntAnchor = Model;
 
+		// Viewmatrix, beschreibt wo die Kamera steht, wo sie hinschaut, und wo oben ist. 
+		// Man muss angeben, wo oben ist, da es eine Mehrdeutigkeit gäbe, wenn man nur beschreiben
+		// würde, wo die Kamera steht und wo sie hinschaut. Denken Sie an ein Flugzeug. Die Position 
+		// des/r Piloten/in in der Welt ist klar, es ist dann auch klar, wo er/sie hinschaut. Das Flugzeug 
+		// kann sich aber z. B. auf die Seite legen, dann würde der Horizont "kippen". Dieser Aspekt wird
+		// mit dem up-Vektor (hier "oben") gesteuert.
+		View = glm::lookAt(
+			glm::vec3(translate1 - glm::vec3((1 + mouseWheel) * cos(antRotation / 57), -7, (1 + mouseWheel) * sin(antRotation / 57))), // die Kamera ist bei (0,0,-5), in Weltkoordinaten
+			glm::vec3(translate1),  // und schaut in den Ursprung
+			glm::vec3(0, 1, 0)); // Oben ist bei (0,1,0), das ist die y-Achse
+
+			//Rotate the View
+		//Model = glm::rotate(Model, winkelX, glm::vec3(1, 0, 0));
+		//Model = glm::rotate(Model, winkelY, glm::vec3(0, 1, 0));
+		//Model = glm::rotate(Model, winkelZ, glm::vec3(0, 0, 1));
+
+
+
 		//Lichtpunkt
-		glm::vec4 lightPos = Model * glm::vec4(0, 1.5f, 0, 1);
+		glm::vec4 lightPos = Model * glm::vec4(0, 5.0f, 0, 1);
 		glUniform3f(glGetUniformLocation(programID, "LightPosition_worldspace"), lightPos.x, lightPos.y,
 			lightPos.z);
 
@@ -499,7 +526,7 @@ int main(void)
 
 
 
-		if (sphereScaling > 30 && sphereNumber < sphereMax) {
+		if (sphereScaling > maxSphereSize && sphereNumber < sphereMax) {
 
 			spheres[sphereNumber] = AntAnchor;
 			spheresTrans[sphereNumber] = translate1;
@@ -516,7 +543,7 @@ int main(void)
 		//draw the builded spheres
 		for (size_t i = 0; i < sizeof(spheres) / sizeof(spheres[0]); i++)
 		{
-			printf("%f\n", ((float)i));
+			//printf("%f\n", ((float)i));
 
 			glm::vec3 translating = spheresTrans[i];
 			glm::vec3 scaling = spheresScale[i];
@@ -542,12 +569,12 @@ int main(void)
 		//the Ant
 		Model = AntAnchor;
 		Model = glm::rotate(Model, antRotation, glm::vec3(0, -1, 0));
-		Model = glm::rotate(Model, 180.0f, glm::vec3(0, 1, 0));
-		Model = glm::translate(Model, glm::vec3(sphereScaling / 100 + 0.3, 0.0, 0.0));
+		Model = glm::translate(Model, glm::vec3(-(sphereScaling / 100 + 0.3), 0.0, 0.0));
+		Model = glm::rotate(Model, 90.0f, glm::vec3(0, 1, 0));
 
-		Model = glm::rotate(Model, 90.0f, glm::vec3(-1, 0, 0));
-		Model = glm::rotate(Model, 180.0f, glm::vec3(0, 0, 1));
-		Model = glm::scale(Model, glm::vec3(1.0 / 100, 1.0 / 100, 1.0 / 100));
+		Model = glm::rotate(Model, 0.0f, glm::vec3(-1, 0, 0));
+		Model = glm::rotate(Model, 0.0f, glm::vec3(0, 0, 1));
+		Model = glm::scale(Model, glm::vec3(1.0 / 20, 1.0 / 20, 1.0 / 20));
 
 		sendMVP();
 		shaderHelper();
@@ -593,7 +620,7 @@ int main(void)
 		//the ground
 		Model = Save;
 		Model = glm::translate(Model, glm::vec3(0, -0.001, 0));
-		Model = glm::scale(Model, glm::vec3(groundSize / 100, 1, groundSize / 100));
+		Model = glm::scale(Model, glm::vec3((groundSize + groundEdge) / 100, 1, (groundSize + groundEdge) / 100));
 		sendMVP();
 		shaderHelper();
 		ground.display();
@@ -611,36 +638,36 @@ int main(void)
 
 		//
 		glm::mat4 Wall = Model;
-		Model = glm::translate(Model, glm::vec3(0, 0, groundSize));
+		Model = glm::translate(Model, glm::vec3(0, 0, groundSize + groundEdge));
 		Model = glm::rotate(Model, 90.0f, glm::vec3(0, 1, 0));
-		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, (groundSize + groundEdge) / 100));
 		sendMVP();
 		shaderHelper();
 		wall.display();
 
 		//
 		Model = Wall;
-		Model = glm::translate(Model, glm::vec3(-groundSize, 0, 0));
+		Model = glm::translate(Model, glm::vec3(-(groundSize + groundEdge), 0, 0));
 		Model = glm::rotate(Model, 0.0f, glm::vec3(0, 1, 0));
-		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, (groundSize + groundEdge) / 100));
 		sendMVP();
 		shaderHelper();
 		wall.display();
 
 		//
 		Model = Wall;
-		Model = glm::translate(Model, glm::vec3(groundSize, 0, 0));
+		Model = glm::translate(Model, glm::vec3(groundSize + groundEdge, 0, 0));
 		Model = glm::rotate(Model, 0.0f, glm::vec3(0, 1, 0));
-		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, (groundSize + groundEdge) / 100));
 		sendMVP();
 		shaderHelper();
 		wall.display();
 
 		//
 		Model = Wall;
-		Model = glm::translate(Model, glm::vec3(0, 0, -groundSize));
+		Model = glm::translate(Model, glm::vec3(0, 0, -(groundSize + groundEdge)));
 		Model = glm::rotate(Model, 90.0f, glm::vec3(0, 1, 0));
-		Model = glm::scale(Model, glm::vec3(1, 0.3, groundSize / 100));
+		Model = glm::scale(Model, glm::vec3(1, 0.3, (groundSize + groundEdge) / 100));
 		sendMVP();
 		shaderHelper();
 		wall.display();
@@ -650,9 +677,9 @@ int main(void)
 		for (size_t i = 0; i < foodNumber; i++)
 		{
 			Model = Save;
-			Model = glm::translate(Model, glm::vec3(randomFoodX[i], 0.2, randomFoodY[i]));
+			Model = glm::translate(Model, glm::vec3(randomFoodX[i], 0.0, randomFoodY[i]));
 			Model = glm::scale(Model, glm::vec3(0.1, 0.1, 0.1));
-			Model = glm::rotate(Model, i*15.0f, glm::vec3(0, 1, 0));
+			Model = glm::rotate(Model, i * 15.0f, glm::vec3(0, 1, 0));
 			sendMVP();
 			shaderHelper();
 			food[i].display();
